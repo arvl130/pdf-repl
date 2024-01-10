@@ -1,5 +1,9 @@
-import React from "react"
-import { Text, View } from "@react-pdf/renderer"
+import React, { useMemo } from "react"
+import { Polygon, Svg, Text, View } from "@react-pdf/renderer"
+import {
+  getCountOfWeekDaysToSkipFromGivenMonth,
+  getSchoolDaysForGivenMonth,
+} from "@/date-conversions"
 
 function Head() {
   return (
@@ -229,15 +233,31 @@ function Head() {
   )
 }
 
-function StudentRecord({ isLast }: { isLast: boolean }) {
+type ExtendedStudent = Student & { section: Section; attendances: Attendance[] }
+
+function isAbsentOnGivenDay(student: ExtendedStudent, givenDay: string) {
+  return student.attendances.some(
+    (attendance) =>
+      attendance.recordDate === givenDay && attendance.status === "ABSENT"
+  )
+}
+
+function StudentRecord(props: {
+  student: ExtendedStudent
+  isLast: boolean
+  daysToSkip: number
+  weekdays: string[]
+  daysToPad: number
+}) {
   return (
     <View
       style={{
         fontSize: 6,
         flexDirection: "row",
-        borderBottomWidth: isLast ? undefined : 1,
+        borderBottomWidth: props.isLast ? undefined : 1,
       }}
     >
+      {/* Learner Name */}
       <View
         style={{
           width: "20%",
@@ -266,6 +286,7 @@ function StudentRecord({ isLast }: { isLast: boolean }) {
           <Text>Dela Cruz, Juan G.</Text>
         </View>
       </View>
+      {/* Weekdays */}
       <View
         style={{
           flex: 1,
@@ -277,21 +298,64 @@ function StudentRecord({ isLast }: { isLast: boolean }) {
             flex: 1,
           }}
         >
-          {[...Array(25)].map((_, index) => (
+          {[...Array(props.daysToSkip)].map((_, index) => (
             <View
               key={index + 1}
               style={{
                 flex: 1,
                 justifyContent: "center",
                 alignItems: "center",
-                borderRightWidth: index + 1 === 25 ? undefined : 1,
+                borderRightWidth: 1,
               }}
             >
-              <Text>?</Text>
+              <Text></Text>
+            </View>
+          ))}
+          {props.weekdays.map((weekday, index) => (
+            <View
+              key={weekday}
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                // Shade the first two days orange.
+                backgroundColor: index < 2 ? "#ffbf00" : undefined,
+                // If we have days padding on the right,
+                // then we should always have a border-right for them.
+                // Otherwise, only have a border-right if we are *not*
+                // the last weekday of the month.
+                borderRightWidth:
+                  props.daysToPad > 0
+                    ? 1
+                    : index + 1 === props.weekdays.length
+                    ? undefined
+                    : 1,
+              }}
+            >
+              {isAbsentOnGivenDay(props.student, weekday) && (
+                <Text>&times;</Text>
+              )}
+              {/* <Svg height={11} width={12}>
+                <Polygon points="0,0 12,0 0,11" fill="green" />
+              </Svg> */}
+            </View>
+          ))}
+          {[...Array(props.daysToPad)].map((_, index) => (
+            <View
+              key={index + 1}
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                borderRightWidth: index + 1 === props.daysToPad ? undefined : 1,
+              }}
+            >
+              <Text></Text>
             </View>
           ))}
         </View>
       </View>
+      {/* Absent/Tardy */}
       <View
         style={{
           width: "12%",
@@ -313,7 +377,13 @@ function StudentRecord({ isLast }: { isLast: boolean }) {
               alignItems: "center",
             }}
           >
-            <Text style={{}}>???</Text>
+            <Text style={{}}>
+              {
+                props.student.attendances.filter(
+                  (attendance) => attendance.status === "ABSENT"
+                ).length
+              }
+            </Text>
           </View>
           <View
             style={{
@@ -322,10 +392,17 @@ function StudentRecord({ isLast }: { isLast: boolean }) {
               alignItems: "center",
             }}
           >
-            <Text>???</Text>
+            <Text>
+              {
+                props.student.attendances.filter(
+                  (attendance) => attendance.status === "TARDY"
+                ).length
+              }
+            </Text>
           </View>
         </View>
       </View>
+      {/* Remarks */}
       <View
         style={{
           width: "15%",
@@ -333,25 +410,70 @@ function StudentRecord({ isLast }: { isLast: boolean }) {
           alignItems: "center",
         }}
       >
-        <Text>???</Text>
+        <Text></Text>
       </View>
     </View>
   )
 }
 
-function StudentSummary({
-  isLast,
-  summaryFor,
-}: {
+function getTotalAttendedForGivenDate(
+  students: ExtendedStudent[],
+  givenDateStr: string
+) {
+  let count = 0
+
+  for (const student of students) {
+    if (
+      student.attendances.some(
+        (attendance) =>
+          attendance.recordDate === givenDateStr &&
+          (attendance.status === "PRESENT" || attendance.status === "TARDY")
+      )
+    )
+      count++
+  }
+
+  return count
+}
+
+function StudentSummary(props: {
+  students: ExtendedStudent[]
   summaryFor: string
   isLast: boolean
+  daysToSkip: number
+  weekdays: string[]
+  daysToPad: number
 }) {
+  const totalAbsent = useMemo(() => {
+    let count = 0
+
+    for (const student of props.students) {
+      count += student.attendances.filter(
+        (attendance) => attendance.status === "ABSENT"
+      ).length
+    }
+
+    return count
+  }, [props.students])
+
+  const totalTardy = useMemo(() => {
+    let count = 0
+
+    for (const student of props.students) {
+      count += student.attendances.filter(
+        (attendance) => attendance.status === "TARDY"
+      ).length
+    }
+
+    return count
+  }, [props.students])
+
   return (
     <View
       style={{
         fontSize: 6,
         flexDirection: "row",
-        borderBottomWidth: isLast ? undefined : 1,
+        borderBottomWidth: props.isLast ? undefined : 1,
       }}
     >
       <View
@@ -380,7 +502,7 @@ function StudentSummary({
             paddingVertical: 2,
           }}
         >
-          <Text>&lt;&#x2013; {summaryFor} | Total Per Day</Text>
+          <Text>&lt;&#x2013; {props.summaryFor} | Total Per Day</Text>
         </View>
       </View>
       <View
@@ -394,17 +516,56 @@ function StudentSummary({
             flex: 1,
           }}
         >
-          {[...Array(25)].map((_, index) => (
+          {[...Array(props.daysToSkip)].map((_, index) => (
             <View
               key={index + 1}
               style={{
                 flex: 1,
                 justifyContent: "center",
                 alignItems: "center",
-                borderRightWidth: index + 1 === 25 ? undefined : 1,
+                borderRightWidth: 1,
               }}
             >
-              <Text>?</Text>
+              <Text></Text>
+            </View>
+          ))}
+          {props.weekdays.map((weekday, index) => (
+            <View
+              key={weekday}
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                // Shade the first two days orange.
+                backgroundColor: index < 2 ? "#ffbf00" : undefined,
+                // If we have days padding on the right,
+                // then we should always have a border-right for them.
+                // Otherwise, only have a border-right if we are *not*
+                // the last weekday of the month.
+                borderRightWidth:
+                  props.daysToPad > 0
+                    ? 1
+                    : index + 1 === props.weekdays.length
+                    ? undefined
+                    : 1,
+              }}
+            >
+              <Text>
+                {getTotalAttendedForGivenDate(props.students, weekday)}
+              </Text>
+            </View>
+          ))}
+          {[...Array(props.daysToPad)].map((_, index) => (
+            <View
+              key={index + 1}
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                borderRightWidth: index + 1 === props.daysToPad ? undefined : 1,
+              }}
+            >
+              <Text></Text>
             </View>
           ))}
         </View>
@@ -430,7 +591,7 @@ function StudentSummary({
               alignItems: "center",
             }}
           >
-            <Text style={{}}>???</Text>
+            <Text>{totalAbsent}</Text>
           </View>
           <View
             style={{
@@ -439,7 +600,7 @@ function StudentSummary({
               alignItems: "center",
             }}
           >
-            <Text>???</Text>
+            <Text>{totalTardy}</Text>
           </View>
         </View>
       </View>
@@ -450,47 +611,226 @@ function StudentSummary({
           alignItems: "center",
         }}
       >
-        <Text>???</Text>
+        <Text></Text>
       </View>
     </View>
   )
 }
 
-function Body() {
+function Body(props: {
+  students: ExtendedStudent[]
+  daysToSkip: number
+  weekdays: string[]
+  daysToPad: number
+}) {
   return (
     <>
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentSummary summaryFor="Male" isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentRecord isLast={false} />
-      <StudentSummary summaryFor="Female" isLast={false} />
-      <StudentSummary summaryFor="Combined" isLast={true} />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentSummary
+        students={props.students}
+        summaryFor="Male"
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentRecord
+        student={props.students[0]}
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentSummary
+        students={props.students}
+        summaryFor="Female"
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={false}
+      />
+      <StudentSummary
+        students={props.students}
+        summaryFor="Combined"
+        daysToSkip={props.daysToSkip}
+        weekdays={props.weekdays}
+        daysToPad={props.daysToPad}
+        isLast={true}
+      />
     </>
   )
 }
 
-export function TableSection() {
+export function TableSection(props: {
+  dateStr: string
+  students: ExtendedStudent[]
+}) {
+  const countOfDaysToSkip = getCountOfWeekDaysToSkipFromGivenMonth(
+    props.dateStr
+  )
+  const weekdays = getSchoolDaysForGivenMonth(props.dateStr)
+  const countOfDaysToPad = 25 - (weekdays.length + countOfDaysToSkip)
+
   return (
     <View
       style={{
@@ -499,7 +839,12 @@ export function TableSection() {
       }}
     >
       <Head />
-      <Body />
+      <Body
+        students={props.students}
+        daysToSkip={countOfDaysToSkip}
+        weekdays={weekdays}
+        daysToPad={countOfDaysToPad}
+      />
     </View>
   )
 }

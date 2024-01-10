@@ -1,5 +1,6 @@
 import React from "react"
 import { Line, Polygon, Rect, Svg, Text, View } from "@react-pdf/renderer"
+import { getSchoolDaysForGivenMonth } from "@/date-conversions"
 
 function Guidelines() {
   return (
@@ -578,7 +579,54 @@ function TableHead() {
   )
 }
 
-function TableBody() {
+type ExtendedStudent = Student & { section: Section; attendances: Attendance[] }
+
+function TableBody({
+  students,
+  schoolDays,
+  isoDateStr,
+}: {
+  students: ExtendedStudent[]
+  schoolDays: string[]
+  isoDateStr: string
+}) {
+  const maleStudents = students.filter((student) => student.gender === "MALE")
+  const registeredLearnersAsOfEndOfMonthMale = maleStudents.length
+
+  const totalDailyAttendanceMale = maleStudents.reduce((prev, curr) => {
+    let count = 0
+    for (const attendance of curr.attendances) {
+      if (attendance.status === "PRESENT" || attendance.status === "TARDY")
+        count += 1
+    }
+
+    return prev + count
+  }, 0)
+  const averageDailyAttendanceMale =
+    totalDailyAttendanceMale / schoolDays.length
+  const percentageOfAttendanceForTheMonthMale =
+    (averageDailyAttendanceMale / registeredLearnersAsOfEndOfMonthMale) * 100
+
+  const femaleStudents = students.filter(
+    (student) => student.gender === "FEMALE"
+  )
+  const registeredLearnersAsOfEndOfMonthFemale = femaleStudents.length
+
+  const totalDailyAttendanceFemale = femaleStudents.reduce((prev, curr) => {
+    let count = 0
+    for (const attendance of curr.attendances) {
+      if (attendance.status === "PRESENT" || attendance.status === "TARDY")
+        count += 1
+    }
+
+    return prev + count
+  }, 0)
+  const averageDailyAttendanceFemale =
+    totalDailyAttendanceFemale / schoolDays.length
+  const percentageOfAttendanceForTheMonthFemale =
+    (averageDailyAttendanceFemale / registeredLearnersAsOfEndOfMonthFemale) *
+    100
+
   return (
     <View
       style={{
@@ -1207,7 +1255,15 @@ function TableBody() {
   )
 }
 
-function SummaryTable() {
+function SummaryTable({
+  students,
+  schoolDays,
+  isoDateStr,
+}: {
+  students: ExtendedStudent[]
+  schoolDays: string[]
+  isoDateStr: string
+}) {
   return (
     <View
       style={{
@@ -1215,12 +1271,16 @@ function SummaryTable() {
       }}
     >
       <TableHead />
-      <TableBody />
+      <TableBody
+        students={students}
+        schoolDays={schoolDays}
+        isoDateStr={isoDateStr}
+      />
     </View>
   )
 }
 
-function Signatures() {
+function Signatures(props: { teacherName: string; schoolHeadName: string }) {
   return (
     <View
       style={{
@@ -1248,7 +1308,7 @@ function Signatures() {
             fontFamily: "Helvetica-Bold",
           }}
         >
-          MR. ROMART M. MANLIQUEZ
+          {props.teacherName}
         </Text>
         <Text
           style={{
@@ -1280,7 +1340,7 @@ function Signatures() {
             fontFamily: "Helvetica-Bold",
           }}
         >
-          RUEL A. GRAFIL
+          {props.schoolHeadName}
         </Text>
         <Text
           style={{
@@ -1295,20 +1355,40 @@ function Signatures() {
   )
 }
 
-function RightColumn() {
+function RightColumn(props: {
+  teacherName: string
+  schoolHeadName: string
+  students: ExtendedStudent[]
+  schoolDays: string[]
+  isoDateStr: string
+}) {
   return (
     <View
       style={{
         width: "30%",
       }}
     >
-      <SummaryTable />
-      <Signatures />
+      <SummaryTable
+        students={props.students}
+        schoolDays={props.schoolDays}
+        isoDateStr={props.isoDateStr}
+      />
+      <Signatures
+        teacherName={props.teacherName}
+        schoolHeadName={props.schoolHeadName}
+      />
     </View>
   )
 }
 
-export function FooterSection() {
+export function FooterSection(props: {
+  teacherName: string
+  schoolHeadName: string
+  students: ExtendedStudent[]
+  isoDateStr: string
+}) {
+  const weekdays = getSchoolDaysForGivenMonth(props.isoDateStr)
+
   return (
     <View
       style={{
@@ -1320,7 +1400,13 @@ export function FooterSection() {
     >
       <LeftColumn />
       <CenterColumn />
-      <RightColumn />
+      <RightColumn
+        teacherName={props.teacherName}
+        schoolHeadName={props.schoolHeadName}
+        students={props.students}
+        schoolDays={weekdays}
+        isoDateStr={props.isoDateStr}
+      />
     </View>
   )
 }

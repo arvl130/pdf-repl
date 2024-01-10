@@ -1,7 +1,14 @@
 import React from "react"
 import { Image, Text, View } from "@react-pdf/renderer"
 
-export function HeaderSection() {
+export function HeaderSection(props: {
+  schoolId: string
+  schoolYear: string
+  schoolName: string
+  month: string
+  gradeLevel: string
+  section: string
+}) {
   return (
     <View>
       <View
@@ -125,7 +132,7 @@ export function HeaderSection() {
                   fontFamily: "Helvetica-BoldOblique",
                 }}
               >
-                <Text>123-123</Text>
+                <Text>{props.schoolId}</Text>
               </View>
               <View
                 style={{
@@ -149,7 +156,7 @@ export function HeaderSection() {
                   fontFamily: "Helvetica-BoldOblique",
                 }}
               >
-                <Text>2023-2024</Text>
+                <Text>{props.schoolYear}</Text>
               </View>
             </View>
             <View
@@ -160,7 +167,7 @@ export function HeaderSection() {
                 fontFamily: "Helvetica-BoldOblique",
               }}
             >
-              <Text>PARANAQUE SCIENCE HIGH SCHOOL</Text>
+              <Text>{props.schoolName}</Text>
             </View>
           </View>
         </View>
@@ -219,7 +226,7 @@ export function HeaderSection() {
                   fontFamily: "Helvetica-BoldOblique",
                 }}
               >
-                <Text>SEPTEMBER</Text>
+                <Text>{props.month}</Text>
               </View>
             </View>
             <View
@@ -235,7 +242,7 @@ export function HeaderSection() {
                   fontFamily: "Helvetica-BoldOblique",
                 }}
               >
-                <Text>TEN</Text>
+                <Text>{props.gradeLevel}</Text>
               </View>
               <View
                 style={{
@@ -266,7 +273,7 @@ export function HeaderSection() {
                 fontFamily: "Helvetica-BoldOblique",
               }}
             >
-              <Text>ARCHIMEDES</Text>
+              <Text>{props.section}</Text>
             </View>
           </View>
         </View>
